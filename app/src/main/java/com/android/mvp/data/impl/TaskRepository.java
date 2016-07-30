@@ -33,21 +33,10 @@ public class TaskRepository implements Repository {
         return taskRepository;
     }
 
-    public static void create(LocalProxy localProxy, RemoteProxy remoteProxy) {
-        TaskRepository taskRepository = getInstance();
-        taskRepository.setLocalProxy(localProxy);
-        taskRepository.setRemoteProxy(remoteProxy);
-    }
-
     private LocalProxy mLocalProxy;
     private RemoteProxy mRemoteProxy;
 
-    public TaskRepository() {
-    }
-
-    public TaskRepository(@NonNull LocalProxy localProxy, @NonNull RemoteProxy remoteProxy) {
-        mLocalProxy = localProxy;
-        mRemoteProxy = remoteProxy;
+    private TaskRepository() {
     }
 
     public void setLocalProxy(LocalProxy localProxy) {
