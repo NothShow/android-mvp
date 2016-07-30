@@ -1,11 +1,9 @@
 package com.android.mvp.home;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Window;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import com.android.mvp.R;
 import com.android.mvp.base.BaseScheduler;
@@ -19,14 +17,14 @@ import com.android.mvp.thread.HandlerThread;
 import java.util.List;
 
 
-public class HomeActivity extends AppCompatActivity implements HomeContract.View {
+public class HomeActivity extends AppCompatActivity {
 
-
-    private ListView mListTodo;
-
-    private HomeContract.Presenter mPresenter;
-
+    private ListView mList;
     private HomeListAdapter mListAdapter;
+
+    private TaskRepository mRepository;
+    private BaseScheduler mScheduler;
+    private BaseThread mMainThread;
 
 
     @Override
@@ -34,53 +32,45 @@ public class HomeActivity extends AppCompatActivity implements HomeContract.View
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
-        mListTodo = (ListView)findViewById(R.id.list);
+        mList = (ListView)findViewById(R.id.list);
 
-        Context context = getApplicationContext();
-        BaseScheduler scheduler = ThreadPoolScheduler.getInstance();
-        BaseThread thread = new HandlerThread();
+        mListAdapter = new HomeListAdapter(this);
+        mList.setAdapter(mListAdapter);
 
-        TaskRepository jobRepository = TaskRepository.getInstance(
+        mRepository = TaskRepository.getInstance(
                 Injection.provideLocalProxy(),
                 Injection.provideRemoteProxy());
-
-        mPresenter = new HomePresenter(this, scheduler, thread, jobRepository);
-        mPresenter.start();
-
-        mListAdapter = new HomeListAdapter(context, mPresenter);
-        mListTodo.setAdapter(mListAdapter);
-
+        mScheduler = ThreadPoolScheduler.getInstance();
+        mMainThread = new HandlerThread();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        mPresenter.loadTasks(true);
+        initPage();
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mPresenter.stop();
+    private void initPage() {
+        mScheduler.execute(new Runnable() {
+            @Override
+            public void run() {
+                List<Task> tasks = mRepository.getTasks();
+                onTasksLoaded(tasks);
+
+                tasks = mRepository.refreshTasks();
+                onTasksLoaded(tasks);
+            }
+        });
     }
 
-    @Override
-    public void onTasksLoaded(List<Task> tasks) {
-        mListAdapter.setTasks(tasks);
-    }
-
-    @Override
-    public void onTasksNotAvailable() {
-
-    }
-
-    @Override
-    public void onError(int code, String message) {
-        Toast.makeText(this, "error", Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void setPresenter(HomeContract.Presenter presenter) {
-
+    private void onTasksLoaded(final List<Task> tasks) {
+        if (tasks != null) {
+            mMainThread.post(new Runnable() {
+                @Override
+                public void run() {
+                    mListAdapter.setTasks(tasks);
+                }
+            });
+        }
     }
 }

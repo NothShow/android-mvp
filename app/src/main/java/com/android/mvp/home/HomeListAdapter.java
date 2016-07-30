@@ -20,12 +20,10 @@ public class HomeListAdapter extends BaseAdapter {
     private List<Task> mTasks = new LinkedList<>();
 
     private Context mContext;
-    private HomeContract.Presenter mPresenter;
     private LayoutInflater mLayoutInflater;
 
-    public HomeListAdapter(Context context, HomeContract.Presenter presenter) {
+    public HomeListAdapter(Context context) {
         this.mContext = context;
-        this.mPresenter = presenter;
         this.mLayoutInflater = LayoutInflater.from(mContext);
     }
 
