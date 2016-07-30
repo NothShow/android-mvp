@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="base_color">#0088FF</color>
+    <color name="background">#F2F2F2</color>
+    <color name="background_grey">#DDDDDD</color>
+
+    <color name="hintColor">#FFBBBBBB</color>
+    <color name="white">#ffffff</color>
+    <color name="item_text_black">#FF333333</color>
+    <color name="text_grey">#FF999999</color>
+
+    <color name="item_time_over_time">#FFFF5F4A</color>
+
+</resources>
