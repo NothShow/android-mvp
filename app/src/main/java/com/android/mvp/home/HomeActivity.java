@@ -22,7 +22,7 @@ import java.util.List;
 public class HomeActivity extends AppCompatActivity implements HomeContract.View {
 
 
-    private ListView mListTodo;
+    private ListView mList;
 
     private HomeContract.Presenter mPresenter;
 
@@ -34,22 +34,21 @@ public class HomeActivity extends AppCompatActivity implements HomeContract.View
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
-        mListTodo = (ListView)findViewById(R.id.list);
+        mList = (ListView)findViewById(R.id.list);
 
         Context context = getApplicationContext();
         BaseScheduler scheduler = ThreadPoolScheduler.getInstance();
         BaseThread thread = new HandlerThread();
 
-        TaskRepository jobRepository = TaskRepository.getInstance(
+        TaskRepository taskRepository = TaskRepository.getInstance(
                 Injection.provideLocalProxy(),
                 Injection.provideRemoteProxy());
 
-        mPresenter = new HomePresenter(this, scheduler, thread, jobRepository);
+        mPresenter = new HomePresenter(this, scheduler, thread, taskRepository);
         mPresenter.start();
 
         mListAdapter = new HomeListAdapter(context, mPresenter);
-        mListTodo.setAdapter(mListAdapter);
-
+        mList.setAdapter(mListAdapter);
     }
 
     @Override
