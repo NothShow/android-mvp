@@ -397,7 +397,7 @@ Model 层相对于 MVC 来说是一样的，并没有什么变化。
 * 抛开 MVVM 这种模式，其数据绑定用在其他模式上也一样实用。个人觉得，可以不把 MVVM 当作一种模式，它只是使用工具代替了人工绑定数据而已
 
 ### MVP
-在介绍 MVP 之前，我先说明一下代码的层次化、模块化的概念。其实层次化的结构是平时生活中经常都可以看到的，例如一个产业的上下游。每一个层次中有可以分为多个模块。为何要分层、分模块？因为社会「分工」精细化，一个庞大的工程一个组织完不成，必须拆解，一步一步细化。细化之后如何拼接在一起呢？彼此之间需要约定，我们也可以称之为「协议」，将协议标准化，既可构成一个「生态」。协议在 IT 行业无处不在，例如 x86 指令集属于硬件协议，HTTP 属于软件协议。分层与分模块的概念在 IT 行业更是比比皆是，例如网络的七层模型，下层为上层提供服务，在传输层又可以分为 TCP 与 UDP 两种不同的传输方式，我们可以认为它是这一层的两个模块。
+在介绍 MVP 之前，我先说明一下代码的层次化、模块化的概念。其实层次化的结构是平时生活中经常都可以看到的，例如一个产业的上下游。每一个层次中有可以分为多个模块。为何要分层、分模块？因为社会「分工」精细化，一个庞大的工程一个组织完不成，必须拆解，一步一步细化。细化之后如何拼接在一起呢？彼此之间需要约定，我们也可以称之为「协议」，将协议标准化，即可构成一个「生态」。协议在 IT 行业无处不在，例如 x86 指令集属于硬件协议，HTTP 属于软件协议。分层与分模块的概念在 IT 行业更是比比皆是，例如网络的七层模型，下层为上层提供服务，在传输层又可以分为 TCP 与 UDP 两种不同的传输方式，我们可以认为它是这一层的两个模块。
 
 再这个基础之上再来看代码的层次化、模块化可能就更加明朗了。大多数情况下，一个软件不是一个人可以完成的，所以需要进行「分工」，分工方式可以按照层次化的方式来分，例如做 UI 的人专门写 UI，做框架的人专门写框架，做数据更新与存储的人专门做数据；也可以按照业务来分，做某一块业务的人从数据获取到 UI 展示一条龙全写了。
 
@@ -428,6 +428,8 @@ Model 层相对于 MVC 来说是一样的，并没有什么变化。
 * 接口并没有提高项目的可测试性，这一条简直是大错特错，有了接口，我们就可以写 mock 数据，写 mock 实现，上层的测试完全不需要再依赖下层
 
 我个人比较主张每一层都以接口去定义，这样有利于每一层的独立测试，上层可以写一个 mock 实现，只要按照接口约定的逻辑返回即可，这也是 clean 架构的思想。下层回调上层必然是以回调接口的形式去完成，这是毋庸置疑的。
+
+MVP 很好地将 View 与 Model 做了分离，同时 Presenter 也是可以复用的，假设有有两个页面，一个显示列表大纲，一个显示列表详情，如果操作大致一样，那可以复用同一个 Presenter。将 Presenter 的功能做一个最小集的拆分，有利于 Presenter 的复用，同一个视图里面可以同时存在多个 Presenter，每个 Presenter 实现不同的功能，更新不同的区域。总之，在 MVP 架构中，每一层均可以拆分成独立的可复用的组件，因为彼此都可以只是接口依赖。
 
 下面给出一个 MVP 的代码实现的例子。
 
@@ -513,7 +515,80 @@ public class Injection {
     }
 }
 ```
-这样的做法。这样可以在 mock 的环境下，写一份 mock 实现去测试上层的逻辑。HomeActivity 里面只是调用了 HomePresenter 的 loadTasks 方法，以及 start，stop 方法。HomeListAdapter 的实现与 MVC 中一样，这里就不展示了。可以看出，这里 View 只是对 Presenter 有依赖，对 Model 层是没有依赖的。
+这样的做法。这样可以在 mock 的环境下，写一份 mock 实现去测试上层的逻辑。
+
+```
+public class Injection {
+    public static RemoteProxy provideRemoteProxy() {
+        return new RemoteProxy() {
+
+            private List<Task> mTasks = makeFakeTasks();
+            @Override
+            public boolean addTask(Task task) {
+                mTasks.add(task);
+                return true;
+            }
+
+            @Override
+            public boolean deleteTask(long taskId) {
+                for (Task task : mTasks) {
+                    if (task.getId() == taskId) {
+                        mTasks.remove(task);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public Task getTask(long taskId) {
+                for (Task task : mTasks) {
+                    if (task.getId() == taskId) {
+                        return task;
+                    }
+                }
+                return null;
+            }
+
+            @Override
+            public boolean updateTask(Task task) {
+                for (int i = 0; i < mTasks.size(); ++i) {
+                    Task t = mTasks.get(i);
+                    if (t.getId() == task.getId()) {
+                        mTasks.set(i, task);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public List<Task> getAllTask() {
+                return mTasks;
+            }
+
+            private List<Task> makeFakeTasks() {
+                List<Task> tasks = new LinkedList<>();
+                Date date = new Date();
+                long time = date.getTime();
+                for (int i = 0; i < 10; ++i) {
+                    Task task = new Task();
+                    task.setId(time + i);
+                    task.setTitle("this is a test title " + String.valueOf(i));
+                    tasks.add(task);
+                }
+
+                return tasks;
+            }
+        };
+    }
+
+    public static LocalProxy provideLocalProxy() {
+        return new TaskDbApi();
+    }
+}
+```
+HomeActivity 里面只是调用了 HomePresenter 的 loadTasks 方法，以及 start，stop 方法。HomeListAdapter 的实现与 MVC 中一样，这里就不展示了。可以看出，这里 View 只是对 Presenter 有依赖，对 Model 层是没有依赖的。
 
 ####Presenter
 #####BasePresenter.java
@@ -709,6 +784,7 @@ public class LoadTask extends BaseTask<LoadTask.RequestValues, LoadTask.Response
 * 上层对下层的依赖可以是直接依赖，也可以是接口依赖
 * 下层对上层只能是接口依赖
 * 使用接口依赖，可以实现各个层的独立测试，也就是 clean 架构的思想。
+* MVP 中，每一层都可以拆分成独立的组件，实现复用。一个视图可以包含多个 Presenter，一个 Presenter 的逻辑可以展示在不同的 View 上，因为每一层之间都可以只是接口依赖
 
 最后再重申一遍
 
