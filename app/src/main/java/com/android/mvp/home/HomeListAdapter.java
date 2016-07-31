@@ -1,14 +1,14 @@
 package com.android.mvp.home;
 
 import android.content.Context;
+import android.databinding.DataBindingUtil;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.TextView;
 
-import com.android.mvp.R;
 import com.android.mvp.data.bean.Task;
+import com.android.mvp.databinding.ActivityHomeItemBinding;
 
 
 import java.util.LinkedList;
@@ -58,29 +58,16 @@ public class HomeListAdapter extends BaseAdapter {
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
-        final ViewHolder viewHolder;
-        Task task;
-        task = mTasks.get(position);
+        ActivityHomeItemBinding binding;
+        Task task = mTasks.get(position);
         if (convertView == null) {
-            convertView = mLayoutInflater.inflate(R.layout.activity_home_item, null);
-            viewHolder = new ViewHolder();
-
-            viewHolder.tvItemTitle = (TextView)convertView.findViewById(R.id.tv_item_title);
-            convertView.setTag(viewHolder);
+            binding = ActivityHomeItemBinding.inflate(mLayoutInflater, parent, false);
         } else {
-            viewHolder = (ViewHolder) convertView.getTag();
+            binding = DataBindingUtil.getBinding(convertView);
         }
+        binding.setTask(task);
+        binding.executePendingBindings();
 
-        bindData(viewHolder, task);
-        return convertView;
-    }
-
-    private void bindData(ViewHolder viewHolder, Task task) {
-        viewHolder.tvItemTitle.setText(task.getTitle());
-    }
-
-
-    static class ViewHolder {
-        TextView tvItemTitle;
+        return binding.getRoot();
     }
 }

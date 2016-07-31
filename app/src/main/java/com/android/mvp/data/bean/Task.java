@@ -1,7 +1,12 @@
 package com.android.mvp.data.bean;
 
 
-public final class Task {
+import android.databinding.BaseObservable;
+import android.databinding.Bindable;
+
+import com.android.mvp.BR;
+
+public final class Task extends BaseObservable {
 
     private long mId;
     private String mTitle;
@@ -19,11 +24,13 @@ public final class Task {
         mId = id;
     }
 
+    @Bindable
     public String getTitle() {
         return mTitle;
     }
 
     public void setTitle(String title) {
         mTitle = title;
+        notifyPropertyChanged(BR.title);
     }
 }
