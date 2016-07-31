@@ -397,3 +397,324 @@ Model 层相对于 MVC 来说是一样的，并没有什么变化。
 * 抛开 MVVM 这种模式，其数据绑定用在其他模式上也一样实用。个人觉得，可以不把 MVVM 当作一种模式，它只是使用工具代替了人工绑定数据而已
 
 ### MVP
+在介绍 MVP 之前，我先说明一下代码的层次化、模块化的概念。其实层次化的结构是平时生活中经常都可以看到的，例如一个产业的上下游。每一个层次中有可以分为多个模块。为何要分层、分模块？因为社会「分工」精细化，一个庞大的工程一个组织完不成，必须拆解，一步一步细化。细化之后如何拼接在一起呢？彼此之间需要约定，我们也可以称之为「协议」，将协议标准化，既可构成一个「生态」。协议在 IT 行业无处不在，例如 x86 指令集属于硬件协议，HTTP 属于软件协议。分层与分模块的概念在 IT 行业更是比比皆是，例如网络的七层模型，下层为上层提供服务，在传输层又可以分为 TCP 与 UDP 两种不同的传输方式，我们可以认为它是这一层的两个模块。
+
+再这个基础之上再来看代码的层次化、模块化可能就更加明朗了。大多数情况下，一个软件不是一个人可以完成的，所以需要进行「分工」，分工方式可以按照层次化的方式来分，例如做 UI 的人专门写 UI，做框架的人专门写框架，做数据更新与存储的人专门做数据；也可以按照业务来分，做某一块业务的人从数据获取到 UI 展示一条龙全写了。
+
+哪种方式更好？答案是按层次来划分会更好。每个层次很多代码可以做到可「复用」，例如数据层的人可以写一个统一的数据存储框架，处理所有业务模块的数据，带来的问题就是产生了上层与下层的协作与沟通成本。按照业务来划分的话，两个人同时写到从网络获取数据的时候，是各自用一个框架呢，还是统一用一个呢？同样会产生协作与沟通成本。但是按照层次来划分，上下层的可以通过「接口」来约束行为，达到解耦的目的，而按照业务来划分就做不到了。
+
+一般来说，对于有图形界面的客户端软件来说，我们可以简单地分为三层
+
+![layer](article/layer.png)
+
+我们所用的图形界面，看到的是什么？本质上来说就是数据的可视化呈现。这里就正式引入 MVP 概念了，它是 Model View Presenter 的简称，Model 提供数据，View 负责展示，Presenter 负责处理逻辑，它的结构图如下
+
+![layer](article/mvp.png)
+
+和上面的分层一摸一样！在 MVP 里，Presenter 完全把 Model 和 View 进行了分离，主要的程序逻辑在 Presenter 里实现。而且，Presenter 与具体的 View 是没有直接关联的，而是通过定义好的接口进行交互，从而使得在变更 View 时候可以保持 Presenter 的不变，即重用！
+
+从上到下是直接调用，用实箭头表示。从下到上是回调，用虚箭头表示。依赖关系是上层对下层是直接依赖，下层不能依赖上层。那从上层调用下层是不是必须定义接口？业内有不少声音呼吁，不要再给 Presenter 加接口了，还给出了诸多理由，我简单列举几条
+
+* 加了接口 IPresenter，实现类写成 IPresenterImpl 名字不好看
+* 加了接口让方法数翻倍
+* 通过接口不好定位具体的实现，程序的走向很难把控
+* 接口并没有提高项目的可测试性
+
+个人觉得，需要看情况而定，一般来说下层不定义接口，上层直接依赖下层的实现，并没有什么问题。但是在并行开发中，我想在开发过程中使用下层逻辑怎么办呢，下层并没有实现完成啊？这个时候就需要下层定义好接口，彼此之间通过「接口」来约束行为。这里我说到过很多次「接口」，相信大家也知道接口的重要性，因为分工的关系，很多时候我们需要「面向接口编程」，而不是「面向实现编程」。上面的诸多理由都是可以一一被驳回的
+
+* 可以通过内部类的方式来规范命名
+* 定义良好的接口一般数量会比较少，相比整个项目的方法数来说简直是九牛一毛
+* 多态的特性都不想要了么，是不是凡是用到多态的地方都可以用这个理由去反驳
+* 接口并没有提高项目的可测试性，这一条简直是大错特错，有了接口，我们就可以写 mock 数据，写 mock 实现，上层的测试完全不需要再依赖下层
+
+我个人比较主张每一层都以接口去定义，这样有利于每一层的独立测试，上层可以写一个 mock 实现，只要按照接口约定的逻辑返回即可，这也是 clean 架构的思想。下层回调上层必然是以回调接口的形式去完成，这是毋庸置疑的。
+
+下面给出一个 MVP 的代码实现的例子。
+
+####View
+#####activity\_home.xml，activity\_home_item.xml
+与 MVC一致，不再重复。
+
+#####HomeActivity.java
+```
+public class HomeActivity extends AppCompatActivity implements HomeContract.View {
+
+    private ListView mList;
+
+    private HomeContract.Presenter mPresenter;
+
+    private HomeListAdapter mListAdapter;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_home);
+        mList = (ListView)findViewById(R.id.list);
+
+        Context context = getApplicationContext();
+        BaseScheduler scheduler = ThreadPoolScheduler.getInstance();
+        BaseThread thread = new HandlerThread();
+
+        TaskRepository taskRepository = TaskRepository.getInstance(
+                Injection.provideLocalProxy(),
+                Injection.provideRemoteProxy());
+
+        mPresenter = new HomePresenter(this, scheduler, thread, taskRepository);
+        mPresenter.start();
+
+        mListAdapter = new HomeListAdapter(context, mPresenter);
+        mList.setAdapter(mListAdapter);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.loadTasks(true);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mPresenter.stop();
+    }
+
+    @Override
+    public void onTasksLoaded(List<Task> tasks) {
+        mListAdapter.setTasks(tasks);
+    }
+
+    @Override
+    public void onTasksNotAvailable() {
+
+    }
+
+    @Override
+    public void onError(int code, String message) {
+        Toast.makeText(this, "error", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void setPresenter(HomeContract.Presenter presenter) {
+
+    }
+}
+```
+这里创建了一个 HomePresenter 的实例，当然这里也可以使用工厂模式去解耦，类似
+
+```
+public class Injection {
+    public static RemoteProxy provideRemoteProxy() {
+        return new TaskServerApi();
+    }
+
+    public static LocalProxy provideLocalProxy() {
+        return new TaskDbApi();
+    }
+}
+```
+这样的做法。这样可以在 mock 的环境下，写一份 mock 实现去测试上层的逻辑。HomeActivity 里面只是调用了 HomePresenter 的 loadTasks 方法，以及 start，stop 方法。HomeListAdapter 的实现与 MVC 中一样，这里就不展示了。可以看出，这里 View 只是对 Presenter 有依赖，对 Model 层是没有依赖的。
+
+####Presenter
+#####BasePresenter.java
+```
+public interface BasePresenter {
+
+    void start();
+
+    void stop();
+
+}
+```
+
+#####BaseView.java
+```
+public interface BaseView<T extends BasePresenter> {
+
+    void setPresenter(T presenter);
+
+}
+```
+上面两个类只是为了说明：一个 Presenter 属于一个 View。
+#####HomeContract.java
+```
+public class HomeContract {
+
+    public interface View extends BaseView<Presenter> {
+
+        void onTasksLoaded(List<Task> tasks);
+
+        void onTasksNotAvailable();
+
+        void onError(int code, String message);
+
+    }
+
+    public interface Presenter extends BasePresenter {
+
+        void loadTasks(boolean refresh);
+
+    }
+}
+```
+该类定义了一个具体的业务场景的 View 接口与 Presenter 接口，这里通过内部类的形式去实现，是为了强调 View 与 Presenter 的一一对应关系，并且很好地解决了上面说的命名的问题。
+#####HomePresenter.java
+```
+public class HomePresenter implements HomeContract.Presenter {
+
+    private HomeContract.View mView;
+    private Repository mRepository;
+    private BaseScheduler mScheduler;
+    private BaseThread mMainThread;
+    private LoadTask mLoadTask;
+
+    public HomePresenter(HomeContract.View view, BaseScheduler scheduler, BaseThread thread, Repository repository) {
+        this.mView = view;
+        this.mScheduler = scheduler;
+        this.mMainThread = thread;
+        this.mRepository = repository;
+
+        mLoadTask = new LoadTask(mScheduler);
+    }
+
+    @Override
+    public void loadTasks(boolean refresh) {
+        LoadTask.RequestValues requestValues = new LoadTask.RequestValues();
+        requestValues.setRefresh(refresh);
+        requestValues.setRepository(mRepository);
+        mLoadTask.setRequestValues(requestValues);
+
+        mLoadTask.execute(new LoadTask.Callback<LoadTask.ResponseValues>() {
+
+            @Override
+            public void onSuccess(final LoadTask.ResponseValues response) {
+                mMainThread.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        List<Task> tasks = response.getTasks();
+                        if (tasks != null && tasks.size() > 0) {
+                            mView.onTasksLoaded(tasks);
+                        } else {
+                            mView.onTasksNotAvailable();
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onError(final int code, final String msg) {
+                mMainThread.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mView.onError(code, msg);
+                    }
+                });
+            }
+        }, true);
+    }
+
+    @Override
+    public void start() {
+
+    }
+
+    @Override
+    public void stop() {
+
+    }
+}
+```
+HomePresenter 是一个具体的实现，它实现了具体的业务逻辑即 loadTasks，并且将结果通过接口 onTasksLoaded 返回给 View 层去做展示。对于 Presenter 来说，View 是它的上一层，只能通过这种回调的方式返回数据，或者做数据更新。
+
+####Model
+#####TaskRepository.java
+与 MVC 中一致。
+
+#####LoadTask.java
+```
+public class LoadTask extends BaseTask<LoadTask.RequestValues, LoadTask.ResponseValues> {
+
+    public static final class RequestValues implements BaseTask.RequestValues {
+        private boolean mRefresh;
+        private Repository mRepository;
+
+        public boolean isRefresh() {
+            return mRefresh;
+        }
+
+        public void setRefresh(boolean refresh) {
+            mRefresh = refresh;
+        }
+
+        public Repository getRepository() {
+            return mRepository;
+        }
+
+        public void setRepository(Repository repository) {
+            mRepository = repository;
+        }
+    }
+
+    public static final class ResponseValues implements BaseTask.ResponseValues {
+        private List<Task> mTasks;
+
+        public ResponseValues() {
+            mTasks = new LinkedList<>();
+        }
+
+        public List<Task> getTasks() {
+            return mTasks;
+        }
+
+        public void setTasks(List<Task> tasks) {
+            mTasks = tasks;
+        }
+    }
+
+    public LoadTask(BaseScheduler scheduler) {
+        super(scheduler);
+    }
+
+    @Override
+    public void run() {
+
+        getScheduler().execute(new Runnable() {
+            @Override
+            public void run() {
+                LoadTask.RequestValues requestValues = getRequestValues();
+                boolean refresh = requestValues.isRefresh();
+                List<Task> tasks = requestValues.getRepository().getTasks();
+
+                LoadTask.ResponseValues responseValues = new LoadTask.ResponseValues();
+                responseValues.setTasks(tasks);
+                setResponseValues(responseValues);
+
+                notifySuccess();
+
+                if (refresh) {
+                    tasks = requestValues.getRepository().refreshTasks();
+                    responseValues.setTasks(tasks);
+                    notifySuccess();
+                }
+            }
+        });
+
+    }
+}
+```
+这里 LoadTask 类使用 TaskRepository 提供的 getTasks 获取本地数据，传回给 Presenter，然后再使用 refreshTasks 获取服务端数据，传回给 Presenter，它对上层的数据返回也是通过定义的回调函数完成的，即上面的 LoadTask.Callback。
+
+####小结
+* MVP 是最符合客户端软件分层的架构
+* 上层对下层的依赖可以是直接依赖，也可以是接口依赖
+* 下层对上层只能是接口依赖
+* 使用接口依赖，可以实现各个层的独立测试，也就是 clean 架构的思想。
+
+最后再重申一遍
+
+* 架构来源于业务，并没有好坏之分。好的架构是在业务、成本、时间之间取得一个完美的平衡
+* 希望读者有自己的思考，具有怀疑和批判精神，千万不要相信本文的观点
+
+本文中所有的例子，可以在我的 Github 上找到，项目地址：[android-mvp](https://github.com/myz7656/android-mvp) 
+
+
