@@ -8,9 +8,22 @@ import java.util.concurrent.TimeUnit;
 
 public class SingleThreadScheduler implements BaseScheduler {
 
+    private static SingleThreadScheduler sInstance;
+
+    public static SingleThreadScheduler getInstance() {
+        if(sInstance == null) {
+            synchronized (SingleThreadScheduler.class) {
+                if(sInstance == null) {
+                    sInstance = new SingleThreadScheduler();
+                }
+            }
+        }
+        return sInstance;
+    }
+
     private ExecutorService mExecutorService;
 
-    public SingleThreadScheduler() {
+    private SingleThreadScheduler() {
         mExecutorService = Executors.newSingleThreadExecutor();
     }
 

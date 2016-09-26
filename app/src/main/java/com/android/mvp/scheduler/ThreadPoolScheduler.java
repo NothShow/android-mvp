@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 public class ThreadPoolScheduler implements BaseScheduler {
 
     private static ThreadPoolScheduler sInstance;
+
     public static ThreadPoolScheduler getInstance() {
         if (sInstance == null) {
             synchronized (ThreadPoolScheduler.class) {
@@ -21,7 +22,7 @@ public class ThreadPoolScheduler implements BaseScheduler {
 
     private ExecutorService mExecutorService;
 
-    public ThreadPoolScheduler() {
+    private ThreadPoolScheduler() {
         mExecutorService = Executors.newCachedThreadPool();
     }
 
